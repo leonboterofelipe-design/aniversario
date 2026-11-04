@@ -108,3 +108,15 @@
 /* ---------- Intro / protocolo ---------- */
 
 .intro__ledger { margin-top: var(--s-3); }
+
+/* Foto al abrirse la cápsula */
+.evidence-slot.lock__photo { margin: var(--s-3) 0 0; }
+.lock__photo[hidden] { display: none; }
+.lock__photo:not([hidden]) { animation: photo-drop 900ms var(--ease-spring) 200ms both; }
+.lock__photo .evidence { transform: rotate(2deg); }
+
+@keyframes photo-drop {
+  from { opacity: 0; transform: translateY(-24px) rotate(-6deg) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+.evidence-slot.lock__photo .evidence__photo img { height: clamp(180px, 30vh, 360px); }

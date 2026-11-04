@@ -19,6 +19,7 @@ export const config = {
     openEyebrow: 'Cápsula del tiempo · Estado: desclasificada',
     openTitle: 'Llegó el día. *Ábrela*.',
     openLede: 'El sello se rompió. Pero antes de mostrarte nada, el sistema necesita confirmar que de verdad eres tú.',
+    openImage: '/assets/apertura.jpg', // foto que aparece al abrirse la cápsula
     cta: 'Abrir el expediente',
   },
 
@@ -101,7 +102,8 @@ export const config = {
       eyebrow: 'Banda sonora del expediente',
       title: 'Loco enamorado',
       artist: 'Fonseca',
-      uri: 'spotify:track:6E6a2T1KtGMYShq0rjK7A0',
+      // id del video: lo que va después de "watch?v=" en el link de YouTube
+      youtubeId: 'wFP-B_1ps-4',
       hint: 'Si no suena sola, dale play ▶',
     },
     letterEyebrow: 'Mensaje desclasificado',

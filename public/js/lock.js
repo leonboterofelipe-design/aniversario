@@ -43,7 +43,14 @@ export function lockView({ el, go, ctx }) {
     },
   }, copy.cta, h('span', { class: 'btn__arrow', 'aria-hidden': 'true' }, '→'));
 
-  el.append(stamp, eyebrow, title, lede, countdown, h('div', { class: 'spacer' }), note, cta);
+  // Foto de apertura: solo aparece cuando se rompe el sello.
+  const photo = copy.openImage && h('figure', { class: 'evidence-slot lock__photo', hidden: true },
+    h('div', { class: 'evidence' },
+      h('div', { class: 'evidence__photo' }, h('img', { src: copy.openImage, alt: 'Nosotros', decoding: 'async' })),
+    ),
+  );
+
+  el.append(stamp, eyebrow, title, lede, countdown, photo, h('div', { class: 'spacer' }), note, cta);
 
   const shown = [];
   let timer = 0;
@@ -79,6 +86,7 @@ export function lockView({ el, go, ctx }) {
     lede.textContent = copy.openLede;
     note.textContent = `Sello roto · ${config.stampDate}`;
     cta.hidden = false;
+    if (photo) photo.hidden = false;
 
     if (live) {
       cells.forEach((c) => (c.value.textContent = '00'));

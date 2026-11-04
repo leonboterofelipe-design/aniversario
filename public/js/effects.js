@@ -277,39 +277,50 @@ export function preload(src) {
 }
 
 // ---------------------------------------------------------------------------
-// Spotify (reproductor oficial embebido)
+// YouTube (reproductor oficial embebido)
 // ---------------------------------------------------------------------------
 
-let spotifyApi = null;
+let youtubeApi = null;
 
-function loadSpotifyApi() {
-  spotifyApi ??= new Promise((resolve, reject) => {
-    window.onSpotifyIframeApiReady = resolve;
+function loadYouTubeApi() {
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  youtubeApi ??= new Promise((resolve, reject) => {
+    window.onYouTubeIframeAPIReady = () => resolve(window.YT);
     const script = document.createElement('script');
-    script.src = 'https://open.spotify.com/embed/iframe-api/v1';
+    script.src = 'https://www.youtube.com/iframe_api';
     script.async = true;
     script.onerror = reject;
     document.head.append(script);
   });
-  return spotifyApi;
+  return youtubeApi;
 }
 
-/** Monta el reproductor en `target`. Devuelve el controlador (o null si cae al iframe simple). */
-export async function mountSpotify(target, uri) {
+/** Monta el video en `target`. Devuelve { play, destroy } (o null si cae al iframe simple). */
+export async function mountYouTube(target, videoId) {
   try {
-    const api = await loadSpotifyApi();
-    return await new Promise((resolve) =>
-      api.createController(target, { uri, width: '100%', height: 152 }, resolve),
-    );
+    const YT = await loadYouTubeApi();
+    return await new Promise((resolve) => {
+      const player = new YT.Player(target, {
+        host: 'https://www.youtube-nocookie.com',
+        videoId,
+        width: '100%',
+        height: '100%',
+        playerVars: { playsinline: 1, rel: 0, modestbranding: 1 },
+        events: {
+          onReady: () => resolve({
+            play: () => player.playVideo(),
+            destroy: () => player.destroy(),
+          }),
+        },
+      });
+    });
   } catch {
-    const id = uri.split(':').pop();
     target.replaceWith(h('iframe', {
-      src: `https://open.spotify.com/embed/track/${id}`,
-      width: '100%',
-      height: 152,
+      src: `https://www.youtube-nocookie.com/embed/${videoId}?playsinline=1&rel=0`,
       loading: 'lazy',
-      allow: 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture',
-      title: 'Reproductor de Spotify',
+      allow: 'autoplay; encrypted-media; picture-in-picture',
+      allowfullscreen: true,
+      title: 'Reproductor de YouTube',
     }));
     return null;
   }

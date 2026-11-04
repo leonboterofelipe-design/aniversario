@@ -3,7 +3,7 @@
 import { checkAnswer } from './api.js';
 import { h, pad, prefersReducedMotion, retrigger, rich, s, wait } from './dom.js';
 import {
-  announce, confetti, confettiRain, mountSpotify, openLightbox, preload, setMemory, shake, showOverlay, sound, vibrate,
+  announce, confetti, confettiRain, mountYouTube, openLightbox, preload, setMemory, shake, showOverlay, sound, vibrate,
 } from './effects.js';
 import { loadProgress, resetProgress, saveProgress } from './store.js';
 
@@ -347,7 +347,7 @@ export function finalView({ el, go, ctx }) {
   img.addEventListener('error', () => img.replaceWith(drawnGift()), { once: true });
   giftButton.append(img);
 
-  // Canción: reproductor de Spotify. Se intenta arrancar sola; si el navegador
+  // Canción: reproductor de YouTube. Se intenta arrancar sola; si el navegador
   // lo bloquea, ella le da play (o toca el regalo).
   let player = null;
   let alive = true;
@@ -361,7 +361,7 @@ export function finalView({ el, go, ctx }) {
     h('p', { class: 'song__hint' }, copy.song.hint),
   );
   if (copy.song) {
-    mountSpotify(playerSlot, copy.song.uri).then((controller) => {
+    mountYouTube(playerSlot, copy.song.youtubeId).then((controller) => {
       if (!alive) return controller?.destroy?.();
       player = controller;
       setTimeout(() => alive && player?.play?.(), 1600);

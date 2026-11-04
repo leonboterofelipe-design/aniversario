@@ -528,13 +528,21 @@
 .song__title em { font-style: italic; color: var(--accent); }
 
 .song__player {
-  min-height: 152px;
+  position: relative;
+  aspect-ratio: 16 / 9;
   overflow: hidden;
   border-radius: 12px;
   background: var(--surface-2);
 }
 
-.song__player iframe { display: block; border: 0; }
+.song__player iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+}
 
 .song__hint {
   margin-top: 12px;
