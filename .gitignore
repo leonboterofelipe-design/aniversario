@@ -1,0 +1,5 @@
+node_modules/
+.vercel/
+.env*
+# Originales pesados (HEIC); la web usa /public/assets/galeria
+public/assets/I*gano/

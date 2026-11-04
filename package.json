@@ -1,0 +1,13 @@
+{
+  "name": "capsula-aniversario",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Cápsula del tiempo: expediente clasificado que se abre el 8 de noviembre de 2026.",
+  "scripts": {
+    "dev": "node dev-server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
