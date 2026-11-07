@@ -20,6 +20,17 @@ export const config = {
     openTitle: 'Llegó el día. *Ábrela*.',
     openLede: 'El sello se rompió. Pero antes de mostrarte nada, el sistema necesita confirmar que de verdad eres tú.',
     openImage: '/assets/apertura.jpg', // foto que aparece al abrirse la cápsula
+
+    // Música mientras está sellada. Si existe `file` (MP3 tuyo) suena ese, sin anuncios;
+    // si no, se usa el video de YouTube (YouTube puede mostrar anuncios).
+    music: {
+      eyebrow: 'Música de espera',
+      title: 'En vivo y en directo',
+      artist: 'Fonseca',
+      file: '/assets/musica-espera.mp3',
+      youtubeId: 'cdHn3kNGRRs',
+      hint: 'Toca la pantalla para escucharla',
+    },
     cta: 'Abrir el expediente',
   },
 

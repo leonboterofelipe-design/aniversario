@@ -296,7 +296,7 @@ function loadYouTubeApi() {
 }
 
 /** Monta el video en `target`. Devuelve { play, destroy } (o null si cae al iframe simple). */
-export async function mountYouTube(target, videoId) {
+export async function mountYouTube(target, videoId, { loop = false } = {}) {
   try {
     const YT = await loadYouTubeApi();
     return await new Promise((resolve) => {
@@ -305,10 +305,16 @@ export async function mountYouTube(target, videoId) {
         videoId,
         width: '100%',
         height: '100%',
-        playerVars: { playsinline: 1, rel: 0, modestbranding: 1 },
+        playerVars: {
+          playsinline: 1,
+          rel: 0,
+          modestbranding: 1,
+          ...(loop ? { loop: 1, playlist: videoId } : {}),
+        },
         events: {
           onReady: () => resolve({
             play: () => player.playVideo(),
+            pause: () => player.pauseVideo(),
             destroy: () => player.destroy(),
           }),
         },

@@ -1,10 +1,113 @@
 // Pantalla de bloqueo (cuenta regresiva → sello roto) e intro del protocolo.
 
 import { h, pad, retrigger, rich } from './dom.js';
-import { confetti, sound, vibrate } from './effects.js';
+import { confetti, isMuted, mountYouTube, sound, vibrate } from './effects.js';
 import { loadProgress, saveProgress } from './store.js';
 
 const UNITS = ['Días', 'Horas', 'Min', 'Seg'];
+
+/**
+ * Música de espera. Usa el MP3 si existe (sin anuncios); si no, YouTube.
+ * Los navegadores no dejan sonar audio sin un toque, así que arranca con el
+ * primer toque en cualquier parte de la pantalla.
+ */
+function waitingMusic(music) {
+  let player = null; // { play, pause, destroy }
+  let playing = false;
+  let alive = true;
+
+  const toggle = h('button', { class: 'music__toggle', type: 'button', 'aria-pressed': 'false' }, '▶');
+  const slot = h('div', { class: 'music__video', hidden: true }, h('div'));
+  const card = h('section', { class: 'music reveal', style: { '--i': 4 } },
+    h('div', { class: 'music__row' },
+      toggle,
+      h('div', { class: 'music__meta' },
+        h('p', { class: 'eyebrow' }, music.eyebrow),
+        h('p', { class: 'music__title' }, h('em', null, music.title), ` · ${music.artist}`),
+      ),
+      h('span', { class: 'music__eq', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')),
+    ),
+    slot,
+    h('p', { class: 'music__hint' }, music.hint),
+  );
+
+  const setPlaying = (value) => {
+    playing = value;
+    card.classList.toggle('is-playing', value);
+    toggle.textContent = value ? '❚❚' : '▶';
+    toggle.setAttribute('aria-pressed', String(value));
+    toggle.setAttribute('aria-label', value ? 'Pausar música' : 'Reproducir música');
+  };
+  setPlaying(false);
+
+  const start = () => {
+    if (!player || playing || isMuted()) return;
+    Promise.resolve(player.play()).then(() => setPlaying(true), () => {});
+  };
+
+  toggle.addEventListener('click', () => {
+    if (!player) return;
+    if (playing) {
+      player.pause();
+      setPlaying(false);
+    } else {
+      Promise.resolve(player.play()).then(() => setPlaying(true), () => {});
+    }
+  });
+
+  // Primer toque en cualquier parte (menos el propio botón) arranca la música.
+  const firstTap = (e) => {
+    if (toggle.contains(e.target)) return;
+    start();
+  };
+  document.addEventListener('pointerdown', firstTap, { capture: true, once: true });
+
+  async function useFile() {
+    const res = await fetch(music.file, { method: 'HEAD', cache: 'no-store' }).catch(() => null);
+    if (!res?.ok) return false;
+    const audio = new Audio(music.file);
+    audio.loop = true;
+    audio.preload = 'auto';
+    audio.volume = 0.7;
+    player = {
+      play: () => audio.play(),
+      pause: () => audio.pause(),
+      destroy: () => {
+        audio.pause();
+        audio.src = '';
+      },
+    };
+    return true;
+  }
+
+  async function useYouTube() {
+    slot.hidden = false;
+    const controller = await mountYouTube(slot.firstElementChild, music.youtubeId, { loop: true });
+    if (!controller) return;
+    player = {
+      play: () => controller.play(),
+      pause: () => controller.pause(),
+      destroy: () => controller.destroy(),
+    };
+  }
+
+  (async () => {
+    if (!(music.file && (await useFile()))) await useYouTube();
+    if (!alive) return player?.destroy();
+    start(); // Por si el navegador sí deja sonar sin toque.
+  })();
+
+  return {
+    el: card,
+    stop() {
+      if (!alive) return;
+      alive = false;
+      document.removeEventListener('pointerdown', firstTap, { capture: true });
+      player?.destroy();
+      card.remove();
+    },
+  };
+}
 
 export function lockView({ el, go, ctx }) {
   const { clock, config } = ctx;
@@ -50,7 +153,10 @@ export function lockView({ el, go, ctx }) {
     ),
   );
 
-  el.append(stamp, eyebrow, title, lede, countdown, photo, h('div', { class: 'spacer' }), note, cta);
+  // Música solo mientras está sellada.
+  const music = copy.music && clock.now() < clock.unlockAt ? waitingMusic(copy.music) : null;
+
+  el.append(stamp, eyebrow, title, lede, countdown, music?.el, photo, h('div', { class: 'spacer' }), note, cta);
 
   const shown = [];
   let timer = 0;
@@ -77,6 +183,7 @@ export function lockView({ el, go, ctx }) {
 
   function open(live) {
     clearInterval(timer);
+    music?.stop();
     ctx.setStatus('Desclasificado', 'accent');
 
     stamp.classList.add('stamp--open');
@@ -109,7 +216,10 @@ export function lockView({ el, go, ctx }) {
     timer = setInterval(render, 250);
   }
 
-  return () => clearInterval(timer);
+  return () => {
+    clearInterval(timer);
+    music?.stop();
+  };
 }
 
 export function introView({ el, go, ctx }) {
