@@ -1,19 +1,20 @@
 // Pantalla de bloqueo (cuenta regresiva → sello roto) e intro del protocolo.
 
 import { h, pad, retrigger, rich } from './dom.js';
-import { confetti, isMuted, mountYouTube, sound, vibrate } from './effects.js';
+import { confetti, isMuted, mountYouTube, showOverlay, sound, vibrate } from './effects.js';
 import { loadProgress, saveProgress } from './store.js';
 
 const UNITS = ['Días', 'Horas', 'Min', 'Seg'];
 
 /**
  * Música de espera. Usa el MP3 si existe (sin anuncios); si no, YouTube.
- * Los navegadores no dejan sonar audio sin un toque, así que arranca con el
- * primer toque en cualquier parte de la pantalla.
+ * Intenta sonar sola al abrir la página. Si el navegador lo bloquea (en celulares
+ * casi siempre), muestra una ventana "Identificarme": ese toque arranca la música.
  */
 function waitingMusic(music) {
   let player = null; // { play, pause, destroy }
   let playing = false;
+  let userPaused = false;
   let alive = true;
 
   const toggle = h('button', { class: 'music__toggle', type: 'button', 'aria-pressed': 'false' }, '▶');
@@ -41,26 +42,34 @@ function waitingMusic(music) {
   setPlaying(false);
 
   const start = () => {
-    if (!player || playing || isMuted()) return;
-    Promise.resolve(player.play()).then(() => setPlaying(true), () => {});
+    if (!player || playing || userPaused || isMuted()) return Promise.resolve(false);
+    return Promise.resolve(player.play()).then(
+      () => {
+        setPlaying(true);
+        document.removeEventListener('pointerdown', firstTap, { capture: true });
+        return true;
+      },
+      () => false,
+    );
   };
 
   toggle.addEventListener('click', () => {
     if (!player) return;
     if (playing) {
+      userPaused = true;
       player.pause();
       setPlaying(false);
     } else {
-      Promise.resolve(player.play()).then(() => setPlaying(true), () => {});
+      userPaused = false;
+      start();
     }
   });
 
-  // Primer toque en cualquier parte (menos el propio botón) arranca la música.
+  // Cualquier toque en la pantalla (menos el propio botón) arranca la música.
   const firstTap = (e) => {
-    if (toggle.contains(e.target)) return;
-    start();
+    if (!toggle.contains(e.target)) start();
   };
-  document.addEventListener('pointerdown', firstTap, { capture: true, once: true });
+  document.addEventListener('pointerdown', firstTap, { capture: true });
 
   async function useFile() {
     const res = await fetch(music.file, { method: 'HEAD', cache: 'no-store' }).catch(() => null);
@@ -94,7 +103,18 @@ function waitingMusic(music) {
   (async () => {
     if (!(music.file && (await useFile()))) await useYouTube();
     if (!alive) return player?.destroy();
-    start(); // Por si el navegador sí deja sonar sin toque.
+    if (await start()) return; // El navegador sí la dejó sonar sola.
+    if (!alive || isMuted() || playing) return;
+    // Bloqueado: pedir un toque. El toque sobre la ventana dispara firstTap.
+    await showOverlay({
+      variant: 'gate',
+      tapAnywhere: true,
+      eyebrow: music.gateEyebrow,
+      title: music.gateTitle,
+      body: music.gateBody,
+      action: music.gateAction,
+    });
+    if (alive) start();
   })();
 
   return {
@@ -156,7 +176,36 @@ export function lockView({ el, go, ctx }) {
   // Música solo mientras está sellada.
   const music = copy.music && clock.now() < clock.unlockAt ? waitingMusic(copy.music) : null;
 
-  el.append(stamp, eyebrow, title, lede, countdown, music?.el, photo, h('div', { class: 'spacer' }), note, cta);
+  // Imágenes programadas: se muestra la más reciente cuya hora ya llegó, mientras está sellada.
+  const apparitions = (copy.apparitions ?? [])
+    .map((item) => ({ ...item, at: Date.parse(item.from) }))
+    .sort((a, b) => a.at - b.at);
+  const ghost = apparitions.length ? h('figure', { class: 'ghost', hidden: true }) : null;
+  let ghostShown = null;
+
+  const updateGhost = () => {
+    if (!ghost) return;
+    const now = clock.now();
+    const current = now < clock.unlockAt ? apparitions.filter((a) => now >= a.at).at(-1) : null;
+    if (current === ghostShown) return;
+    ghostShown = current;
+    ghost.hidden = !current;
+    if (!current) return ghost.replaceChildren();
+    ghost.replaceChildren(
+      h('img', { src: current.src, alt: current.alt, decoding: 'async' }),
+      current.message && h('figcaption', { class: 'ghost__message' },
+        current.eyebrow && h('span', { class: 'eyebrow' }, current.eyebrow),
+        h('span', { class: 'ghost__text' }, rich(current.message)),
+      ),
+    );
+    if (live) {
+      sound('open');
+      vibrate([30, 60, 30]);
+    }
+  };
+  let live = false; // false en la primera pintada: no suena si ya estaba visible al abrir
+
+  el.append(stamp, eyebrow, title, lede, countdown, music?.el, ghost, photo, h('div', { class: 'spacer' }), note, cta);
 
   const shown = [];
   let timer = 0;
@@ -164,6 +213,8 @@ export function lockView({ el, go, ctx }) {
   function render() {
     const ms = clock.unlockAt - clock.now();
     if (ms <= 0) return open(true);
+    updateGhost();
+    live = true;
 
     const total = Math.floor(ms / 1000);
     const parts = [
@@ -184,6 +235,7 @@ export function lockView({ el, go, ctx }) {
   function open(live) {
     clearInterval(timer);
     music?.stop();
+    ghost?.remove();
     ctx.setStatus('Desclasificado', 'accent');
 
     stamp.classList.add('stamp--open');

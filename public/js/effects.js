@@ -442,13 +442,27 @@ const alarmIcon = () =>
     s('path', { class: 'alarm-icon__mark', d: 'M28 22 V34 M28 41 V41.5' }),
   );
 
+// Huella digital para la entrada (variante 'gate').
+const fingerprintIcon = () =>
+  s('svg', { class: 'overlay__icon gate-icon', viewBox: '0 0 56 56', 'aria-hidden': 'true' },
+    s('path', { d: 'M16 22a12 12 0 0 1 24 0v6' }),
+    s('path', { d: 'M21 23a7 7 0 0 1 14 0v7c0 6-2 11-5 15' }),
+    s('path', { d: 'M28 23v8c0 6-1.5 10-4 14' }),
+    s('path', { d: 'M16 28v2c0 5-1 9-3 12' }),
+    s('path', { d: 'M40 33c0 5-1 9-3 13' }),
+    s('path', { d: 'M11 18a19 19 0 0 1 34 0' }),
+  );
+
 let overlaySeq = 0;
 
 /**
  * Muestra un overlay tipo hoja inferior y resuelve al cerrarse.
- * variant: 'success' | 'alarm' | 'info'
+ * variant: 'success' | 'alarm' | 'info' | 'gate'
+ * tapAnywhere: se cierra tocando cualquier parte (sin espera inicial).
  */
-export function showOverlay({ variant = 'info', eyebrow, title, subtitle, body, image, action = 'Continuar' }) {
+export function showOverlay({
+  variant = 'info', eyebrow, title, subtitle, body, image, action = 'Continuar', tapAnywhere = false,
+}) {
   return new Promise((resolve) => {
     const id = `ov-${++overlaySeq}`;
     const previousFocus = document.activeElement;
@@ -456,7 +470,7 @@ export function showOverlay({ variant = 'info', eyebrow, title, subtitle, body, 
     const button = h('button', {
       class: ['btn btn--block', variant === 'alarm' ? 'btn--ghost' : 'btn--primary'],
       type: 'button',
-      disabled: true,
+      disabled: !tapAnywhere,
     }, action);
 
     const panel = h('div', {
@@ -469,6 +483,7 @@ export function showOverlay({ variant = 'info', eyebrow, title, subtitle, body, 
     },
       variant === 'success' && successIcon(),
       variant === 'alarm' && alarmIcon(),
+      variant === 'gate' && fingerprintIcon(),
       eyebrow && h('p', { class: 'eyebrow overlay__eyebrow' }, eyebrow),
       h('h2', { class: 'overlay__title title', id: `${id}-title` }, rich(title)),
       subtitle && h('p', { class: 'overlay__subtitle' }, subtitle),
@@ -517,6 +532,7 @@ export function showOverlay({ variant = 'info', eyebrow, title, subtitle, body, 
       sound('tap');
       close();
     });
+    if (tapAnywhere) root.addEventListener('click', close);
     document.addEventListener('keydown', onKey);
   });
 }

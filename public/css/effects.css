@@ -372,3 +372,44 @@
 
 .lightbox__btn:active { transform: scale(0.95); }
 .lightbox__btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* ---------- Entrada (huella): pantalla completa, se toca en cualquier parte ---------- */
+
+.overlay--gate {
+  justify-content: center;
+  cursor: pointer;
+}
+
+.overlay.overlay--gate.is-open {
+  background: radial-gradient(120% 70% at 50% 0%, #4E1E25 0%, #22101A 55%, #1B0D12 100%);
+}
+
+.overlay--gate .overlay__panel {
+  background: none;
+  box-shadow: none;
+  text-align: center;
+}
+
+.overlay--gate .overlay__icon {
+  width: 88px;
+  height: 88px;
+  margin: 0 auto var(--s-4);
+}
+
+.gate-icon path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  animation: fingerprint 2s ease-in-out infinite;
+}
+
+.gate-icon path:nth-child(2n) { animation-delay: -1s; }
+
+@keyframes fingerprint {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+.overlay--gate .overlay__title { font-size: 48px; }
+.overlay--gate .overlay__body { max-width: 30ch; margin-left: auto; margin-right: auto; }

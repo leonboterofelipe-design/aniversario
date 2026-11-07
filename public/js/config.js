@@ -30,7 +30,29 @@ export const config = {
       file: '/assets/musica-espera.mp3',
       youtubeId: 'hMOwLk4gATw',
       hint: 'Toca la pantalla para escucharla',
+      // Ventana que aparece si el celular no deja sonar la música solo.
+      gateEyebrow: 'Acceso restringido',
+      gateTitle: 'Expediente *clasificado*.',
+      gateBody: 'Solo una persona tiene autorización. Pon tu huella: toca en cualquier parte de la pantalla.',
+      gateAction: 'Identificarme',
     },
+
+    // Imágenes que aparecen y se desvanecen debajo de la canción. Se muestra la más
+    // reciente cuya hora `from` ya pasó (hora del servidor). `message` es opcional.
+    apparitions: [
+      {
+        from: '2026-11-07T15:00:00-05:00', // hoy 3:00 pm hora Colombia
+        src: '/assets/aparicion.jpg',
+        alt: 'Nosotros con las velas',
+      },
+      {
+        from: '2026-11-07T20:00:00-05:00', // hoy 8:00 pm hora Colombia
+        src: '/assets/aparicion-2.jpg',
+        alt: 'Nosotros en el parque',
+        eyebrow: 'Transmisión entrante · 20:00',
+        message: 'Ya solo faltan *4 horas*. Te amoooo, eres el amor de mi vida.',
+      },
+    ],
     cta: 'Abrir el expediente',
   },
 
