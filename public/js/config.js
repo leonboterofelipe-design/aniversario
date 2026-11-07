@@ -28,7 +28,7 @@ export const config = {
       title: 'En vivo y en directo',
       artist: 'Fonseca',
       file: '/assets/musica-espera.mp3',
-      youtubeId: 'cdHn3kNGRRs',
+      youtubeId: 'hMOwLk4gATw',
       hint: 'Toca la pantalla para escucharla',
     },
     cta: 'Abrir el expediente',
