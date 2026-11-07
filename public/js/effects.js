@@ -1,6 +1,6 @@
 // Sonido (Web Audio sintetizado, sin archivos), vibración, confeti, overlays y sacudida.
 
-import { h, rich, s, prefersReducedMotion } from './dom.js';
+import { h, pad, rich, s, prefersReducedMotion } from './dom.js';
 import { store } from './store.js';
 
 let overlayRoot = null;
@@ -295,8 +295,11 @@ function loadYouTubeApi() {
   return youtubeApi;
 }
 
-/** Monta el video en `target`. Devuelve { play, destroy } (o null si cae al iframe simple). */
-export async function mountYouTube(target, videoId, { loop = false } = {}) {
+/**
+ * Monta el video en `target`. Devuelve { play, pause, load, destroy } (o null si cae al
+ * iframe simple). `onEnded` se llama cuando termina el video.
+ */
+export async function mountYouTube(target, videoId, { loop = false, onEnded, onPlayingChange } = {}) {
   try {
     const YT = await loadYouTubeApi();
     return await new Promise((resolve) => {
@@ -315,8 +318,14 @@ export async function mountYouTube(target, videoId, { loop = false } = {}) {
           onReady: () => resolve({
             play: () => player.playVideo(),
             pause: () => player.pauseVideo(),
+            load: (id) => player.loadVideoById(id),
             destroy: () => player.destroy(),
           }),
+          onStateChange: (e) => {
+            if (e.data === YT.PlayerState.PLAYING) onPlayingChange?.(true);
+            else if (e.data === YT.PlayerState.PAUSED) onPlayingChange?.(false);
+            else if (e.data === YT.PlayerState.ENDED) onEnded?.();
+          },
         },
       });
     });
@@ -330,6 +339,153 @@ export async function mountYouTube(target, videoId, { loop = false } = {}) {
     }));
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Lista de reproducción (MP3 sin anuncios; YouTube como respaldo por canción)
+// ---------------------------------------------------------------------------
+
+/**
+ * Reproductor con lista seleccionable. Al terminar una canción sigue la próxima.
+ * Devuelve { el, playing, play, destroy }; play() resuelve true si empezó a sonar.
+ */
+export function createPlaylist(tracks, { eyebrow, hint, className = '', style } = {}) {
+  const audio = new Audio();
+  audio.preload = 'metadata';
+  let index = 0;
+  let playing = false;
+  let alive = true;
+  let yt = null;
+  let ytLoaded = null;
+  const hasFile = new Map();
+
+  const toggle = h('button', { class: 'music__toggle', type: 'button' });
+  const nextButton = h('button', { class: 'playlist__skip', type: 'button', 'aria-label': 'Siguiente canción' }, '⏭');
+  const nowTitle = h('p', { class: 'music__title' });
+  const videoSlot = h('div', { class: 'song__player', hidden: true }, h('div'));
+  const items = tracks.map((track, i) =>
+    h('button', { class: 'playlist__item', type: 'button', onClick: () => playTrack(i) },
+      h('span', { class: 'playlist__n' }, pad(i + 1)),
+      h('span', { class: 'playlist__name' }, h('em', null, track.title), ` · ${track.artist}`),
+      h('span', { class: 'music__eq', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')),
+    ),
+  );
+
+  const el = h('section', { class: ['music playlist', className], style },
+    h('div', { class: 'music__row' },
+      toggle,
+      h('div', { class: 'music__meta' }, eyebrow && h('p', { class: 'eyebrow' }, eyebrow), nowTitle),
+      nextButton,
+    ),
+    videoSlot,
+    h('ol', { class: 'playlist__list' }, items.map((item) => h('li', null, item))),
+    hint && h('p', { class: 'music__hint' }, hint),
+  );
+
+  function render() {
+    const track = tracks[index];
+    nowTitle.replaceChildren(h('em', null, track.title), ` · ${track.artist}`);
+    items.forEach((item, i) => item.classList.toggle('is-current', i === index));
+    el.classList.toggle('is-playing', playing);
+    toggle.textContent = playing ? '❚❚' : '▶';
+    toggle.setAttribute('aria-label', playing ? 'Pausar' : 'Reproducir');
+  }
+
+  const setPlaying = (value) => {
+    playing = value;
+    render();
+  };
+
+  async function fileExists(track) {
+    if (!track.file) return false;
+    if (!hasFile.has(track.file)) {
+      const res = await fetch(track.file, { method: 'HEAD', cache: 'no-store' }).catch(() => null);
+      hasFile.set(track.file, Boolean(res?.ok));
+    }
+    return hasFile.get(track.file);
+  }
+
+  async function playTrack(i) {
+    index = (i + tracks.length) % tracks.length;
+    const track = tracks[index];
+    audio.pause();
+    yt?.pause();
+    setPlaying(false);
+
+    if (await fileExists(track)) {
+      if (!alive) return false;
+      videoSlot.hidden = true;
+      audio.src = track.file;
+      return audio.play().then(() => {
+        setPlaying(true);
+        return true;
+      }, () => false);
+    }
+
+    if (!track.youtubeId) return false;
+    videoSlot.hidden = false;
+    if (!yt) {
+      yt = await mountYouTube(videoSlot.firstElementChild, track.youtubeId, {
+        onEnded: next,
+        onPlayingChange: (value) => !videoSlot.hidden && setPlaying(value),
+      });
+      if (!alive) {
+        yt?.destroy();
+        return false;
+      }
+      ytLoaded = track.youtubeId;
+      yt?.play();
+    } else if (ytLoaded !== track.youtubeId) {
+      ytLoaded = track.youtubeId;
+      yt.load(track.youtubeId);
+    } else {
+      yt.play();
+    }
+    return true;
+  }
+
+  function next() {
+    if (alive) playTrack(index + 1);
+  }
+
+  audio.addEventListener('ended', next);
+  audio.addEventListener('play', () => setPlaying(true));
+  audio.addEventListener('pause', () => {
+    if (!audio.ended) setPlaying(false);
+  });
+
+  toggle.addEventListener('click', () => {
+    if (playing) {
+      audio.pause();
+      yt?.pause();
+    } else if (!videoSlot.hidden && yt) {
+      yt.play();
+    } else if (audio.getAttribute('src')) {
+      audio.play().catch(() => {});
+    } else {
+      playTrack(index);
+    }
+  });
+  nextButton.addEventListener('click', next);
+
+  render();
+
+  return {
+    el,
+    get playing() {
+      return playing;
+    },
+    play() {
+      return playing ? Promise.resolve(true) : playTrack(index);
+    },
+    destroy() {
+      alive = false;
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+      yt?.destroy();
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------

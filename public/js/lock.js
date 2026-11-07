@@ -1,111 +1,38 @@
 // Pantalla de bloqueo (cuenta regresiva → sello roto) e intro del protocolo.
 
 import { h, pad, retrigger, rich } from './dom.js';
-import { confetti, isMuted, mountYouTube, showOverlay, sound, vibrate } from './effects.js';
+import { confetti, createPlaylist, isMuted, showOverlay, sound, vibrate } from './effects.js';
 import { loadProgress, saveProgress } from './store.js';
 
 const UNITS = ['Días', 'Horas', 'Min', 'Seg'];
 
 /**
- * Música de espera. Usa el MP3 si existe (sin anuncios); si no, YouTube.
- * Intenta sonar sola al abrir la página. Si el navegador lo bloquea (en celulares
- * casi siempre), muestra una ventana "Identificarme": ese toque arranca la música.
+ * Música de espera: la misma lista del final. Intenta sonar sola; si el navegador
+ * lo bloquea (en celulares casi siempre), muestra la entrada con huella y ese toque
+ * arranca la música.
  */
-function waitingMusic(music) {
-  let player = null; // { play, pause, destroy }
-  let playing = false;
-  let userPaused = false;
+function waitingMusic(tracks, music) {
+  const player = createPlaylist(tracks, {
+    eyebrow: music.eyebrow,
+    hint: music.hint,
+    className: 'reveal',
+    style: { '--i': 4 },
+  });
   let alive = true;
 
-  const toggle = h('button', { class: 'music__toggle', type: 'button', 'aria-pressed': 'false' }, '▶');
-  const slot = h('div', { class: 'music__video', hidden: true }, h('div'));
-  const card = h('section', { class: 'music reveal', style: { '--i': 4 } },
-    h('div', { class: 'music__row' },
-      toggle,
-      h('div', { class: 'music__meta' },
-        h('p', { class: 'eyebrow' }, music.eyebrow),
-        h('p', { class: 'music__title' }, h('em', null, music.title), ` · ${music.artist}`),
-      ),
-      h('span', { class: 'music__eq', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')),
-    ),
-    slot,
-    h('p', { class: 'music__hint' }, music.hint),
-  );
-
-  const setPlaying = (value) => {
-    playing = value;
-    card.classList.toggle('is-playing', value);
-    toggle.textContent = value ? '❚❚' : '▶';
-    toggle.setAttribute('aria-pressed', String(value));
-    toggle.setAttribute('aria-label', value ? 'Pausar música' : 'Reproducir música');
-  };
-  setPlaying(false);
-
-  const start = () => {
-    if (!player || playing || userPaused || isMuted()) return Promise.resolve(false);
-    return Promise.resolve(player.play()).then(
-      () => {
-        setPlaying(true);
-        document.removeEventListener('pointerdown', firstTap, { capture: true });
-        return true;
-      },
-      () => false,
-    );
-  };
-
-  toggle.addEventListener('click', () => {
-    if (!player) return;
-    if (playing) {
-      userPaused = true;
-      player.pause();
-      setPlaying(false);
-    } else {
-      userPaused = false;
-      start();
-    }
-  });
-
-  // Cualquier toque en la pantalla (menos el propio botón) arranca la música.
+  // Cualquier toque fuera del reproductor arranca la música si todavía no suena.
   const firstTap = (e) => {
-    if (!toggle.contains(e.target)) start();
+    if (player.el.contains(e.target) || player.playing || isMuted()) return;
+    player.play().then((ok) => {
+      if (ok) document.removeEventListener('pointerdown', firstTap, { capture: true });
+    });
   };
   document.addEventListener('pointerdown', firstTap, { capture: true });
 
-  async function useFile() {
-    const res = await fetch(music.file, { method: 'HEAD', cache: 'no-store' }).catch(() => null);
-    if (!res?.ok) return false;
-    const audio = new Audio(music.file);
-    audio.loop = true;
-    audio.preload = 'auto';
-    audio.volume = 0.7;
-    player = {
-      play: () => audio.play(),
-      pause: () => audio.pause(),
-      destroy: () => {
-        audio.pause();
-        audio.src = '';
-      },
-    };
-    return true;
-  }
-
-  async function useYouTube() {
-    slot.hidden = false;
-    const controller = await mountYouTube(slot.firstElementChild, music.youtubeId, { loop: true });
-    if (!controller) return;
-    player = {
-      play: () => controller.play(),
-      pause: () => controller.pause(),
-      destroy: () => controller.destroy(),
-    };
-  }
-
   (async () => {
-    if (!(music.file && (await useFile()))) await useYouTube();
-    if (!alive) return player?.destroy();
-    if (await start()) return; // El navegador sí la dejó sonar sola.
-    if (!alive || isMuted() || playing) return;
-    // Bloqueado: pedir un toque. El toque sobre la ventana dispara firstTap.
+    if (isMuted()) return;
+    if (await player.play()) return; // El navegador sí la dejó sonar sola.
+    if (!alive || player.playing) return;
     await showOverlay({
       variant: 'gate',
       tapAnywhere: true,
@@ -114,17 +41,16 @@ function waitingMusic(music) {
       body: music.gateBody,
       action: music.gateAction,
     });
-    if (alive) start();
   })();
 
   return {
-    el: card,
+    el: player.el,
     stop() {
       if (!alive) return;
       alive = false;
       document.removeEventListener('pointerdown', firstTap, { capture: true });
-      player?.destroy();
-      card.remove();
+      player.destroy();
+      player.el.remove();
     },
   };
 }
@@ -174,7 +100,9 @@ export function lockView({ el, go, ctx }) {
   );
 
   // Música solo mientras está sellada.
-  const music = copy.music && clock.now() < clock.unlockAt ? waitingMusic(copy.music) : null;
+  const music = config.playlist?.length && clock.now() < clock.unlockAt
+    ? waitingMusic(config.playlist, copy.music)
+    : null;
 
   // Imágenes programadas: se muestra la más reciente cuya hora ya llegó, mientras está sellada.
   const apparitions = (copy.apparitions ?? [])

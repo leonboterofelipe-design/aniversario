@@ -23,13 +23,10 @@ export const config = {
 
     // Música mientras está sellada. Si existe `file` (MP3 tuyo) suena ese, sin anuncios;
     // si no, se usa el video de YouTube (YouTube puede mostrar anuncios).
+    // Música mientras está sellada: usa la lista `playlist` de más abajo.
     music: {
       eyebrow: 'Música de espera',
-      title: 'En vivo y en directo',
-      artist: 'Fonseca',
-      file: '/assets/musica-espera.mp3',
-      youtubeId: 'hMOwLk4gATw',
-      hint: 'Toca la pantalla para escucharla',
+      hint: 'Toca una canción para elegirla',
       // Ventana que aparece si el celular no deja sonar la música solo.
       gateEyebrow: 'Acceso restringido',
       gateTitle: 'Expediente *clasificado*.',
@@ -125,19 +122,27 @@ export const config = {
     'Este incidente quedará en tu expediente permanente.',
   ],
 
+  // Lista de canciones (MP3 en /assets/musica, sin anuncios). Suena en la pantalla de
+  // espera y en el final; cuando termina una empieza la siguiente y vuelve a la primera.
+  // Opcional por canción: `youtubeId` como respaldo si falta el MP3.
+  playlist: [
+    { title: 'En vivo y en directo', artist: 'Fonseca', file: '/assets/musica/01-en-vivo-y-en-directo.mp3' },
+    { title: 'Te hacen falta dos', artist: 'Manuel Turizo', file: '/assets/musica/02-te-hacen-falta-dos.mp3' },
+    { title: 'Si tú la quieres', artist: 'David Bisbal, Aitana', file: '/assets/musica/03-si-tu-la-quieres.mp3' },
+    { title: 'La oportunidad', artist: 'Bala, Pablo Lacadiere', file: '/assets/musica/04-la-oportunidad.mp3' },
+    { title: 'Antes que el tiempo se vaya', artist: 'Fonseca, Juanes', file: '/assets/musica/05-antes-que-el-tiempo-se-vaya.mp3' },
+    { title: 'La historia más bonita', artist: 'Fresto Music', file: '/assets/musica/06-la-historia-mas-bonita.mp3' },
+  ],
+
   final: {
     eyebrow: 'Acceso concedido · Identidad confirmada',
     title: 'Feliz aniversario, *mi amor*.',
     gif: '/assets/regalo.gif',
     giftAlt: 'Tu regalo',
     giftHint: 'Toca el regalo',
-    song: {
+    playlist: {
       eyebrow: 'Banda sonora del expediente',
-      title: 'Loco enamorado',
-      artist: 'Fonseca',
-      // id del video: lo que va después de "watch?v=" en el link de YouTube
-      youtubeId: 'wFP-B_1ps-4',
-      hint: 'Si no suena sola, dale play ▶',
+      hint: 'Toca una canción para elegirla',
     },
     letterEyebrow: 'Mensaje desclasificado',
     letter: [

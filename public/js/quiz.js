@@ -3,7 +3,7 @@
 import { checkAnswer } from './api.js';
 import { h, pad, prefersReducedMotion, retrigger, rich, s, wait } from './dom.js';
 import {
-  announce, confetti, confettiRain, mountYouTube, openLightbox, preload, setMemory, shake, showOverlay, sound, vibrate,
+  announce, confetti, confettiRain, createPlaylist, openLightbox, preload, setMemory, shake, showOverlay, sound, vibrate,
 } from './effects.js';
 import { loadProgress, resetProgress, saveProgress } from './store.js';
 
@@ -347,26 +347,13 @@ export function finalView({ el, go, ctx }) {
   img.addEventListener('error', () => img.replaceWith(drawnGift()), { once: true });
   giftButton.append(img);
 
-  // Canción: reproductor de YouTube. Se intenta arrancar sola; si el navegador
-  // lo bloquea, ella le da play (o toca el regalo).
-  let player = null;
+  // Lista de canciones: se intenta arrancar sola; si el navegador lo bloquea,
+  // ella le da play (o toca el regalo). Al terminar una, empieza la siguiente.
+  const player = config.playlist?.length
+    ? createPlaylist(config.playlist, { ...copy.playlist, className: 'song reveal', style: { '--i': 4 } })
+    : null;
   let alive = true;
-  const playerSlot = h('div');
-  const songCard = copy.song && h('section', { class: 'song reveal', style: { '--i': 4 } },
-    h('div', { class: 'song__head' },
-      h('p', { class: 'eyebrow' }, copy.song.eyebrow),
-      h('p', { class: 'song__title' }, h('em', null, copy.song.title), ` · ${copy.song.artist}`),
-    ),
-    h('div', { class: 'song__player' }, playerSlot),
-    h('p', { class: 'song__hint' }, copy.song.hint),
-  );
-  if (copy.song) {
-    mountYouTube(playerSlot, copy.song.youtubeId).then((controller) => {
-      if (!alive) return controller?.destroy?.();
-      player = controller;
-      setTimeout(() => alive && player?.play?.(), 1600);
-    });
-  }
+  if (player) setTimeout(() => alive && player.play(), 1600);
 
   const row = (key, value, gold) =>
     h('li', null,
@@ -386,7 +373,7 @@ export function finalView({ el, go, ctx }) {
     h('h1', { class: 'display reveal', style: { '--i': 1 }, tabindex: '-1' }, rich(copy.title)),
     giftButton,
     h('p', { class: 'eyebrow gift-hint reveal', style: { '--i': 4 }, 'aria-hidden': 'true' }, copy.giftHint),
-    copy.song && songCard,
+    player?.el,
     h('article', { class: 'letter reveal', style: { '--i': 5 } },
       h('p', { class: 'eyebrow' }, copy.letterEyebrow),
       lead && h('p', { class: 'letter__lead' }, lead),
@@ -437,6 +424,6 @@ export function finalView({ el, go, ctx }) {
   return () => {
     alive = false;
     timers.forEach(clearTimeout);
-    player?.destroy?.();
+    player?.destroy();
   };
 }
